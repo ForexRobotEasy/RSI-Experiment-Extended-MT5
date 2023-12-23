@@ -1,0 +1,94 @@
+mql5
+//+------------------------------------------------------------------+
+//|                                           RSI Experiment Extended |
+//|                                              forexroboteasy.com |
+//|                                                    Forex Robot Easy Team |
+//+------------------------------------------------------------------+
+
+// Define the indicator parameters
+input int RSI_Period = 14;                  // RSI calculation period
+input ENUM_APPLIED_PRICE RSI_PriceType = PRICE_CLOSE;   // Price type for RSI calculation
+input ENUM_MA_METHOD RSI_SmoothingMethod = MODE_SMA;    // Smoothing method for RSI calculation
+input int Lookback_Period = 20;             // Look-back period for RSI calculation
+input double Floating_Level1 = 70;          // Floating level 1
+input double Floating_Level2 = 30;          // Floating level 2
+
+// Define index buffers for data storage
+double RSI_FillBuffer[];
+double RSI_UpLineBuffer[];
+double RSI_MiddleLineBuffer[];
+double RSI_DownLineBuffer[];
+double TrendLineBuffer[];
+
+//+------------------------------------------------------------------+
+//| Custom indicator initialization function                         |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+   // Set buffer sizes
+   ArraySetAsSeries(RSI_FillBuffer, true);
+   ArraySetAsSeries(RSI_UpLineBuffer, true);
+   ArraySetAsSeries(RSI_MiddleLineBuffer, true);
+   ArraySetAsSeries(RSI_DownLineBuffer, true);
+   ArraySetAsSeries(TrendLineBuffer, true);
+
+   // Set indicator short name
+   IndicatorSetString(INDICATOR_SHORTNAME, 'RSI Experiment Extended');
+
+   return(INIT_SUCCEEDED);
+}
+
+//+------------------------------------------------------------------+
+//| Custom indicator iteration function                              |
+//+------------------------------------------------------------------+
+int OnCalculate(const int rates_total,
+                const int prev_calculated,
+                const datetime &time[],
+                const double &open[],
+                const double &high[],
+                const double &low[],
+                const double &close[],
+                const long &tick_volume[],
+                const long &volume[],
+                const int &spread[])
+{
+   // Perform RSI analysis
+   int rsi_calculated = iRSI(Symbol(), PERIOD_CURRENT, RSI_Period, RSI_PriceType, RSI_FillBuffer);
+   
+   // Perform floating levels analysis
+   for (int i = prev_calculated; i < rates_total; i++)
+   {
+      // Calculate RSI values for the current look-back period
+      double rsi_sum = 0;
+      for (int j = i - Lookback_Period + 1; j <= i; j++)
+      {
+         rsi_sum += RSI_FillBuffer[j];
+      }
+      double rsi_average = rsi_sum / Lookback_Period;
+      
+      // Determine potential buy and sell signals based on floating levels
+      if (rsi_average > Floating_Level1)
+      {
+         RSI_UpLineBuffer[i] = rsi_average;
+         RSI_MiddleLineBuffer[i] = Floating_Level1;
+         RSI_DownLineBuffer[i] = Floating_Level2;
+         TrendLineBuffer[i] = 1; // Buy signal
+      }
+      else if (rsi_average < Floating_Level2)
+      {
+         RSI_UpLineBuffer[i] = Floating_Level1;
+         RSI_MiddleLineBuffer[i] = Floating_Level2;
+         RSI_DownLineBuffer[i] = rsi_average;
+         TrendLineBuffer[i] = -1; // Sell signal
+      }
+      else
+      {
+         RSI_UpLineBuffer[i] = Floating_Level1;
+         RSI_MiddleLineBuffer[i] = rsi_average;
+         RSI_DownLineBuffer[i] = Floating_Level2;
+         TrendLineBuffer[i] = 0; // No signal
+      }
+   }
+   
+   return(rates_total);
+}
